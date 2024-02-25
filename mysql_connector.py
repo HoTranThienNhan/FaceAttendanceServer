@@ -40,11 +40,28 @@ def get_all_users(connection):
         print("Cannot get all users")
     return cursor.fetchall()
 
-# get username and password of all users
-def get_user(connection, username, password):
+# get username and password of user admin
+def get_user_admin(connection, username, password):
     cursor = connection.cursor(dictionary=True)
     try:
-        query = ("select * from users where username = %s and password = %s")
+        query = ("""select users.* from users 
+                 left join userrole on users.id = userrole.userid 
+                 left join roles on userrole.roleid = roles.id 
+                 where roles.id = 'AD' and username = %s and password = %s""")
+        cursor.execute(query, (username, password))
+        print("Get user successfully")
+    except:
+        print("Cannot get user")
+    return cursor.fetchone()
+
+# get username and password of user teacher
+def get_user_teacher(connection, username, password):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""select users.* from users 
+                 left join userrole on users.id = userrole.userid 
+                 left join roles on userrole.roleid = roles.id 
+                 where roles.id = 'TC' and username = %s and password = %s""")
         cursor.execute(query, (username, password))
         print("Get user successfully")
     except:
@@ -193,7 +210,10 @@ def fetch_all_courses(connection):
 def fetch_all_teachers(connection):
     cursor = connection.cursor(dictionary=True)
     try:
-        query = ("select * from teachers")
+        query = ("""select users.* from users 
+                 left join userrole on users.id = userrole.userid 
+                 left join roles on userrole.roleid = roles.id 
+                 where roles.id = 'TC'""")
         cursor.execute(query)
         print("Get all teachers successfully")
     except Exception as e:
@@ -213,8 +233,10 @@ def add_new_teacher(connection, request_data):
     password = request_data['password']
     hashed_pass = bcrypt.generate_password_hash(password).decode('utf-8')
     try:
-        query = ("insert into teachers (id, fullname, phone, address, email, username, password) values (%s, %s, %s, %s, %s, %s, %s)")
-        cursor.execute(query, (id, fullname, phone, address, email, username, hashed_pass))
+        query = ("insert into users (id, username, password, fullname, phone, address, email) values (%s, %s, %s, %s, %s, %s, %s)")
+        cursor.execute(query, (id, username, hashed_pass, fullname, phone, address, email))
+        query_user_role = ("insert into userrole (userid, roleid) values (%s, 'TC')")
+        cursor.execute(query_user_role, (id))
         print("Add new teacher successfully")
         connection.commit()
         return True
@@ -233,7 +255,9 @@ def update_the_teacher(connection, request_data):
     email = request_data['email']
     username = request_data['username']
     try:
-        query = ("update teachers set id = %s, fullname = %s, phone = %s, address = %s, email = %s, username = %s where id = %s")
+        query_user_role = ("update userrole set userid = %s where userid = %s")
+        cursor.execute(query_user_role, (id, id))
+        query = ("update users set id = %s, fullname = %s, phone = %s, address = %s, email = %s, username = %s where id = %s")
         cursor.execute(query, (id, fullname, phone, address, email, username, id))
         print("Update teacher successfully")
         connection.commit()

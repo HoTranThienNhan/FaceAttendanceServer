@@ -12,6 +12,7 @@ from mysql_connector import *
  
 app = Flask(__name__)
 CORS(app, origins='http://localhost:3000')
+CORS(app, origins='http://localhost:3001')
 bcrypt = Bcrypt(app) 
 
 
@@ -88,12 +89,25 @@ def open_video():
     )
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SIGN IN >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-@app.route('/signin', methods = ['POST'])
-def sign_in():
+@app.route('/signin_admin', methods = ['POST'])
+def sign_in_admin():
     username = request.args.get('username', None)
     password = request.args.get('password', None)
 
-    this_user = get_user(connection, username=username, password=password)
+    this_user = get_user_admin(connection, username=username, password=password)
+
+    if this_user != None:
+        response = jsonify(this_user)
+        return response
+    else:
+        abort(404)
+
+@app.route('/signin_teacher', methods = ['POST'])
+def sign_in_teacher():
+    username = request.args.get('username', None)
+    password = request.args.get('password', None)
+
+    this_user = get_user_teacher(connection, username=username, password=password)
 
     if this_user != None:
         response = jsonify(this_user)
