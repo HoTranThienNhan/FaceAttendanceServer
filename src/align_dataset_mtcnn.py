@@ -207,4 +207,4 @@ def parse_arguments(argv):
 
 
 # run by command:
-# python src/align_dataset_mtcnn.py  Dataset/raw Dataset/processed --image_size 160 --margin 32  --random_order --gpu_memory_fraction 0.25
+# python src/align_dataset_mtcnn.py Dataset/raw Dataset/processed --image_size 160 --margin 32  --random_order --gpu_memory_fraction 0.25

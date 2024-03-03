@@ -300,3 +300,31 @@ def create_new_class(connection, request_data):
         print(e)
         print("Cannot add new class")
     return False
+
+# get all classes by teacher
+def fetch_all_classes_by_teacher(connection, teacher_id, day):
+    cursor = connection.cursor(dictionary=True)
+    today = 'Monday' #test
+    try:
+        query = ("""select classes.*, courses.name from classes 
+                 left join courses on classes.courseid = courses.id
+                 left join classtime on classes.id = classtime.classid
+                 where teacherid = %s
+                 and classtime.day = %s""")
+        cursor.execute(query, (teacher_id, today,))
+        print("Get all classes by teacher successfully")
+    except:
+        print("Cannot get all classes by teacher")
+    return cursor.fetchall()
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STUDENT GROUPS TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# get all students by class
+def fetch_all_students_by_class(connection, class_id):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("select * from studentgroups where classid = %s")
+        cursor.execute(query, (class_id,))
+        print("Get all students by class successfully")
+    except:
+        print("Cannot get all students by class")
+    return cursor.fetchall()

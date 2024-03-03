@@ -9,6 +9,7 @@ import sys
 import shutil
 from flask_cors import CORS
 from mysql_connector import *
+from utils import getDayOfToday
  
 app = Flask(__name__)
 CORS(app, origins='http://localhost:3000')
@@ -25,7 +26,7 @@ use_face_attendance_database(connection, "face_attendance")
 def align_images(class_name):
     import src.align_dataset_mtcnn as mtcnn
     from src.align_dataset_mtcnn import parse_arguments
-    sys.argv[1:] = [
+    mtcnn.main(parse_arguments([
         'Dataset/raw',      # input directory
         class_name,     # input class directory name
         'Dataset/processed',    # output directory
@@ -33,8 +34,7 @@ def align_images(class_name):
         '--margin', '32',   # margin bounding box
         '--random_order',   # shuffling the order of aligned images
         '--gpu_memory_fraction', '0.25'     # the amount of gpu memory
-    ]
-    mtcnn.main(parse_arguments(sys.argv[1:]))
+    ]))
     
 
 
@@ -70,8 +70,7 @@ def generate_images(id, fullname, phone, address, email):
 
     # add new student to database       
     add_new_student(connection=connection, id=id, fullname=fullname, phone=phone, address=address, email=email)
-    
-    
+
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< APP ROUTES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< VIDEO FRAMES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -148,12 +147,6 @@ def readd():
         abort(404)
     return '', 200
 
-###
-@app.route('/test', methods = ['GET'])
-def test():
-    response = jsonify(hi="Welcome Xin Chao")
-    return response
-###
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< SCAN >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 @app.route('/create_scan', methods = ['POST'])
@@ -322,6 +315,181 @@ def create_class():
             abort(404)
     except:
         abort(404)
+
+@app.route('/get_all_classes_by_teacher', methods = ['GET'])
+def get_all_classes_by_teacher():
+    teacher_id  = request.args.get('teacherid', None)
+    day = getDayOfToday()
+    all_classes_by_teacher = fetch_all_classes_by_teacher(connection, teacher_id, day)
+    if all_classes_by_teacher != None:
+        response = jsonify(all_classes_by_teacher)
+        return response
+    else:
+        abort(404)
+
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< FACE RECOGNITION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+stop_cam = False
+student_attendance_info = []    # list of students who are attended
+student_attendance_list = []    # list of students who needed to be attended
+
+
+@app.route('/set_student_attendance')
+def set_student_attendance_list():
+    class_id  = request.args.get('classid', None)
+    global student_attendance_list
+    student_attendance_info = []
+    student_attendance_list = []
+    try:
+        all_students_by_class = fetch_all_students_by_class(connection, class_id)
+        for student in all_students_by_class:
+            student_attendance_list.append(student['studentid'])
+        return '', 200
+    except:
+        abort(404)
+
+
+def videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected):
+    from imutils.video import VideoStream
+    import imutils
+    from src.align.detect_face import detect_face
+    from src.facenet import prewhiten
+
+    cap  = VideoStream(src=0).start()
+    global stop_cam
+    stop_cam = False
+    global student_attendance_info 
+    student_attendance_info = []
+    global student_attendance_list
+
+    while (True):
+        frame = cap.read()
+        frame = imutils.resize(frame, width=600)
+        frame = cv2.flip(frame, 1)
+
+        bounding_boxes, _ = detect_face(frame, MINSIZE, pnet, rnet, onet, THRESHOLD, FACTOR)
+
+        faces_found = bounding_boxes.shape[0]
+        try:
+            if faces_found > 1:
+                cv2.putText(frame, "Only one face", (0, 100), cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                            1, (255, 255, 255), thickness=1, lineType=2)
+            elif faces_found > 0:
+                det = bounding_boxes[:, 0:4]
+                bb = np.zeros((faces_found, 4), dtype=np.int32)
+                for i in range(faces_found):
+                    bb[i][0] = det[i][0]
+                    bb[i][1] = det[i][1]
+                    bb[i][2] = det[i][2]
+                    bb[i][3] = det[i][3]
+                    print(bb[i][3]-bb[i][1])
+                    print(frame.shape[0])
+                    print((bb[i][3]-bb[i][1])/frame.shape[0])
+                    if (bb[i][3]-bb[i][1])/frame.shape[0]>0.25:
+                        cropped = frame[bb[i][1]:bb[i][3], bb[i][0]:bb[i][2], :]
+                        scaled = cv2.resize(cropped, (INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE),
+                                            interpolation=cv2.INTER_CUBIC)
+                        scaled = prewhiten(scaled)
+                        scaled_reshape = scaled.reshape(-1, INPUT_IMAGE_SIZE, INPUT_IMAGE_SIZE, 3)
+                        feed_dict = {images_placeholder: scaled_reshape, phase_train_placeholder: False}
+                        emb_array = sess.run(embeddings, feed_dict=feed_dict)
+
+                        predictions = model.predict_proba(emb_array)
+                        best_class_indices = np.argmax(predictions, axis=1)
+                        best_class_probabilities = predictions[
+                            np.arange(len(best_class_indices)), best_class_indices]
+                        best_name = class_names[best_class_indices[0]]
+                        print("Name: {}, Probability: {}".format(best_name, best_class_probabilities))
+
+                        if best_class_probabilities > 0.8:
+                            cv2.rectangle(frame, (bb[i][0], bb[i][1]), (bb[i][2], bb[i][3]), (0, 255, 0), 2)
+                            text_x = bb[i][0]
+                            text_y = bb[i][3] + 20
+
+                            name = class_names[best_class_indices[0]]
+                            cv2.putText(frame, name, (text_x, text_y), cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                                        1, (255, 255, 255), thickness=1, lineType=2)
+                            cv2.putText(frame, str(round(best_class_probabilities[0], 3)), (text_x, text_y + 17),
+                                        cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                                        1, (255, 255, 255), thickness=1, lineType=2)
+                            person_detected[best_name] += 1
+
+
+                            ###########################
+                            ### get current time
+                            now = datetime.now()
+                            current_time = now.strftime("%H:%M:%S")
+
+                            ### if student not exists in student_attendance_info list and student belongs to student_attendance_list
+                            ### then add student attendance to student_attendance_info list 
+                            if not any(obj['student'] == name for obj in student_attendance_info) \
+                            and any(obj == name for obj in student_attendance_list):
+                                student_attendance_info.append({
+                                    'student': name,
+                                    'time': current_time
+                                })
+                                stop_video_stream()
+
+
+                        else:
+                            cv2.rectangle(frame, (bb[i][0], bb[i][1]), (bb[i][2], bb[i][3]), (0, 0, 255), 2)
+                            text_x = bb[i][0]
+                            text_y = bb[i][3] + 20
+
+                            name = "Unknown"
+                            cv2.putText(frame, name, (text_x, text_y), cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                                        1, (255, 255, 255), thickness=1, lineType=2)
+                            cv2.putText(frame, str(round(best_class_probabilities[0], 3)), (text_x, text_y + 17),
+                                        cv2.FONT_HERSHEY_COMPLEX_SMALL,
+                                        1, (255, 255, 255), thickness=1, lineType=2)
+
+        except:
+            pass
+
+        cv2.imshow('Face Recognition', frame)
+
+        buffer = cv2.imencode('.jpg', frame)[1].tobytes()
+        yield (b'--frame\r\n'b'Content-Type: image/jpeg\r\n\r\n' + buffer + b'\r\n')
+
+        if cv2.waitKey(1) & 0xFF == ord('q') or stop_cam == True:
+            break
+
+    cap.stream.release()
+    cv2.destroyAllWindows()
+
+
+@app.route('/face_rec')
+def face_rec():
+    global stop_cam
+
+    # classifying aligned face folder from MTCNN steps
+    import src.face_recognition as face_recog
+    import src.classifier as clf
+    from src.classifier import parse_arguments
+    clf.main(parse_arguments([
+        'TRAIN',      # mode ['TRAIN', 'CLASSIFY']
+        'Dataset/processed',     # aligned face folder
+        'Models/20180402-114759.pb',    # model
+        'Models/facemodel.pkl',      # pickle file
+        '--batch_size', '1000'   # number of images to process in a batch
+    ]))
+
+    # using Facenet and SVM to predict face in each frame through video stream
+    sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected = face_recog.Face_Rec().main()
+    return Response(
+        videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected),
+        mimetype='multipart/x-mixed-replace; boundary=frame'
+    )
+
+from datetime import datetime
+@app.route('/stop_video_stream')
+def stop_video_stream():
+    # global stop_cam 
+    # stop_cam = True
+    for item in student_attendance_info:
+        print(item)
+    return jsonify(student_attendance_info)
+
 
 
 if __name__ == "__main__":

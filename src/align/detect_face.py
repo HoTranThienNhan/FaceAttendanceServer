@@ -703,7 +703,7 @@ def nms(boxes, threshold, method):
     pick = np.zeros_like(s, dtype=np.int16)
     counter = 0
     while I.size>0:
-        i = I[-1]
+        i = I[-1]       # bounding box with the largest confidence score
         pick[counter] = i
         counter += 1
         idx = I[0:-1]
