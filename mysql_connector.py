@@ -306,7 +306,7 @@ def fetch_all_classes_by_teacher(connection, teacher_id, day):
     cursor = connection.cursor(dictionary=True)
     today = 'Monday' #test
     try:
-        query = ("""select classes.*, courses.name from classes 
+        query = ("""select classes.*, courses.name, classtime.timein, classtime.timeout from classes 
                  left join courses on classes.courseid = courses.id
                  left join classtime on classes.id = classtime.classid
                  where teacherid = %s
@@ -316,6 +316,23 @@ def fetch_all_classes_by_teacher(connection, teacher_id, day):
     except:
         print("Cannot get all classes by teacher")
     return cursor.fetchall()
+
+# get all classes by teacher and class id
+def fetch_class_by_teacher_and_class_id(connection, teacher_id, day, class_id):
+    cursor = connection.cursor(dictionary=True)
+    today = 'Monday' #test
+    try:
+        query = ("""select classes.*, courses.name, classtime.timein, classtime.timeout from classes 
+                 left join courses on classes.courseid = courses.id
+                 left join classtime on classes.id = classtime.classid
+                 where teacherid = %s
+                 and classtime.day = %s
+                 and classes.id = %s""")
+        cursor.execute(query, (teacher_id, today, class_id,))
+        print("Get class by teacher and class id successfully")
+    except:
+        print("Cannot get class by teacher and class id")
+    return cursor.fetchone()
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STUDENT GROUPS TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # get all students by class
@@ -328,3 +345,22 @@ def fetch_all_students_by_class(connection, class_id):
     except:
         print("Cannot get all students by class")
     return cursor.fetchall()
+
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+
+# add in timesheet
+def add_in_timesheet(connection, classid, studentid, day, date, timein, late):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        print(classid, studentid, day, date, timein, late)
+        query = ("""insert into timesheet (classid, studentid, day, date, timein, late, timeout, soon) values 
+                 (%s, %s, %s, %s, %s, %s, %s, %s)""")
+        cursor.execute(query, (classid, studentid, day, date, timein, late, None, None))
+        print("Add new in timesheet successfully")
+        connection.commit()
+        return True
+    except Exception as e:
+        print(e)
+        print("Cannot add new in timesheet")
+        return False

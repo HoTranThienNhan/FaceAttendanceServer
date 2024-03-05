@@ -9,7 +9,7 @@ import sys
 import shutil
 from flask_cors import CORS
 from mysql_connector import *
-from utils import getDayOfToday
+from utils import *
  
 app = Flask(__name__)
 CORS(app, origins='http://localhost:3000')
@@ -213,6 +213,17 @@ def update_student():
     except:
         abort(404)
 
+@app.route('/get_all_students_by_class', methods = ['GET'])
+def get_all_students_by_class():
+    class_id  = request.args.get('classid', None)
+    print(class_id)
+    all_students_by_class = fetch_all_students_by_class(connection, class_id)
+    if all_students_by_class != None:
+        response = jsonify(all_students_by_class)
+        return response
+    else:
+        abort(404)
+
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< COURSES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 @app.route('/create_course', methods = ['POST'])
 def create_course():
@@ -319,10 +330,11 @@ def create_class():
 @app.route('/get_all_classes_by_teacher', methods = ['GET'])
 def get_all_classes_by_teacher():
     teacher_id  = request.args.get('teacherid', None)
-    day = getDayOfToday()
+    day = get_day_of_today()
     all_classes_by_teacher = fetch_all_classes_by_teacher(connection, teacher_id, day)
     if all_classes_by_teacher != None:
-        response = jsonify(all_classes_by_teacher)
+        # convert any type (time type) to string
+        response = json.dumps(all_classes_by_teacher, indent=4, sort_keys=True, default=str)
         return response
     else:
         abort(404)
@@ -332,14 +344,26 @@ def get_all_classes_by_teacher():
 stop_cam = False
 student_attendance_info = []    # list of students who are attended
 student_attendance_list = []    # list of students who needed to be attended
+attendance_class_id = ''    # attendance class id
+attendance_type = ''    # attendance type [in, out]
 
 
-@app.route('/set_student_attendance')
-def set_student_attendance_list():
+@app.route('/set_attendance')
+def set_attendance():
     class_id  = request.args.get('classid', None)
+    type  = request.args.get('attendancetype', None)
+    teacher_id  = request.args.get('teacherid', None)
     global student_attendance_list
+    global attendance_type
+    global attendance_class_id
+    global attendance_teacher_id
+
     student_attendance_info = []
     student_attendance_list = []
+    attendance_type = type
+    attendance_class_id = class_id
+    attendance_teacher_id = teacher_id
+
     try:
         all_students_by_class = fetch_all_students_by_class(connection, class_id)
         for student in all_students_by_class:
@@ -361,6 +385,9 @@ def videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, T
     global student_attendance_info 
     student_attendance_info = []
     global student_attendance_list
+    global attendance_type
+    global attendance_class_id
+    global attendance_teacher_id
 
     while (True):
         frame = cap.read()
@@ -419,6 +446,12 @@ def videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, T
                             ### get current time
                             now = datetime.now()
                             current_time = now.strftime("%H:%M:%S")
+                            today = date.today()
+                            day = get_day_of_today()
+                            ### get standard time in and time out
+                            class_by_teacher_and_class_id = fetch_class_by_teacher_and_class_id(connection, attendance_teacher_id, 'Monday', attendance_class_id)
+                            standard_time_in = class_by_teacher_and_class_id['timein']
+                            standard_time_out = class_by_teacher_and_class_id['timeout']
 
                             ### if student not exists in student_attendance_info list and student belongs to student_attendance_list
                             ### then add student attendance to student_attendance_info list 
@@ -428,7 +461,11 @@ def videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, T
                                     'student': name,
                                     'time': current_time
                                 })
-                                stop_video_stream()
+                                if (attendance_type == 'in'):
+                                        late = calculate_late_between_in_and_standard(current_time, str(standard_time_in))
+                                        print('late:', late)
+                                        # change day=day and date=today
+                                        add_in_timesheet(connection=connection, classid=attendance_class_id, studentid=name, day='Monday', date='2024-03-04', timein=current_time, late=late)
 
 
                         else:
