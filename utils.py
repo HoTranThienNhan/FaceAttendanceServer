@@ -28,7 +28,15 @@ def convert_timedelta_to_minutes(duration):
 def calculate_late_between_in_and_standard(time_in, standard_time):
     FMT = '%H:%M:%S'
     tdelta = datetime.strptime(time_in, FMT) - datetime.strptime(standard_time, FMT)
-    min = convert_timedelta_to_minutes(tdelta)
-    if (min <= 0):
-        min = 0
-    return min
+    minutes = convert_timedelta_to_minutes(tdelta)
+    if (minutes <= 0):
+        minutes = 0
+    return minutes
+
+def calculate_soon_between_out_and_standard(time_out, standard_time):
+    FMT = '%H:%M:%S'
+    tdelta = datetime.strptime(standard_time, FMT) - datetime.strptime(time_out, FMT)
+    minutes = convert_timedelta_to_minutes(tdelta)
+    if (minutes <= 0):
+        minutes = 0
+    return minutes

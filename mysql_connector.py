@@ -353,7 +353,6 @@ def fetch_all_students_by_class(connection, class_id):
 def add_in_timesheet(connection, classid, studentid, day, date, timein, late):
     cursor = connection.cursor(dictionary=True)
     try:
-        print(classid, studentid, day, date, timein, late)
         query = ("""insert into timesheet (classid, studentid, day, date, timein, late, timeout, soon) values 
                  (%s, %s, %s, %s, %s, %s, %s, %s)""")
         cursor.execute(query, (classid, studentid, day, date, timein, late, None, None))
@@ -364,3 +363,37 @@ def add_in_timesheet(connection, classid, studentid, day, date, timein, late):
         print(e)
         print("Cannot add new in timesheet")
         return False
+    
+# add out timesheet
+def add_out_timesheet(connection, classid, studentid, date, timeout, soon):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""update timesheet set timeout = %s, soon = %s where classid = %s and studentid = %s and date = %s""")
+        cursor.execute(query, (timeout, soon, classid, studentid, date))
+        print("Add new out timesheet successfully")
+        connection.commit()
+        return True
+    except Exception as e:
+        print(e)
+        print("Cannot add new out timesheet")
+        return False
+
+def is_in_attendance_taken(connection, classid, date):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("select * from timesheet where classid = %s and date = %s and timein is not null")
+        cursor.execute(query, (classid, date))
+        print("Check if in attendance taken successfully")
+    except:
+        print("Cannot check if in attendance taken")
+    return cursor.fetchall()
+
+def is_out_attendance_taken(connection, classid, date):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("select * from timesheet where classid = %s and date = %s and timeout is not null")
+        cursor.execute(query, (classid, date))
+        print("Check if out attendance taken successfully")
+    except:
+        print("Cannot check if out attendance taken")
+    return cursor.fetchall()

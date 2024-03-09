@@ -339,6 +339,46 @@ def get_all_classes_by_teacher():
     else:
         abort(404)
 
+@app.route('/get_class_by_teacher_and_class_id', methods = ['GET'])
+def get_class_by_teacher_and_class_id():
+    teacher_id  = request.args.get('teacherid', None)
+    class_id  = request.args.get('classid', None)
+    day = get_day_of_today()
+    class_by_teacher_and_class_id = fetch_class_by_teacher_and_class_id(connection, teacher_id, day, class_id)
+    if class_by_teacher_and_class_id != None:
+        # convert any type (time type) to string
+        response = json.dumps(class_by_teacher_and_class_id, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)
+
+    
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+@app.route('/get_in_attendance', methods = ['GET'])
+def get_in_attendance():
+    class_id  = request.args.get('classid', None)
+    date='2024-03-04'
+    in_attendance = is_in_attendance_taken(connection, class_id, date)
+    if in_attendance != None:
+        # convert any type (time type) to string
+        response = json.dumps(in_attendance, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)
+
+@app.route('/get_out_attendance', methods = ['GET'])
+def get_out_attendance():
+    class_id  = request.args.get('classid', None)
+    date='2024-03-04'
+    out_attendance = is_out_attendance_taken(connection, class_id, date)
+    if out_attendance != None:
+        # convert any type (time type) to string
+        response = json.dumps(out_attendance, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)
+
+
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< FACE RECOGNITION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 stop_cam = False
@@ -462,10 +502,13 @@ def videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, T
                                     'time': current_time
                                 })
                                 if (attendance_type == 'in'):
-                                        late = calculate_late_between_in_and_standard(current_time, str(standard_time_in))
-                                        print('late:', late)
-                                        # change day=day and date=today
-                                        add_in_timesheet(connection=connection, classid=attendance_class_id, studentid=name, day='Monday', date='2024-03-04', timein=current_time, late=late)
+                                    late = calculate_late_between_in_and_standard(current_time, str(standard_time_in))
+                                    # change day=day and date=today
+                                    add_in_timesheet(connection=connection, classid=attendance_class_id, studentid=name, day='Monday', date='2024-03-04', timein=current_time, late=late)
+                                elif (attendance_type == 'out'):
+                                    soon = calculate_soon_between_out_and_standard(current_time, str(standard_time_out))
+                                    # change day=day and date=today
+                                    add_out_timesheet(connection=connection, classid=attendance_class_id, studentid=name, date='2024-03-04', timeout=current_time, soon=soon)
 
 
                         else:
