@@ -352,6 +352,19 @@ def get_class_by_teacher_and_class_id():
     else:
         abort(404)
 
+@app.route('/get_all_classes_by_year_semester_teacher', methods = ['GET'])
+def get_all_classes_by_year_semester_teacher():
+    year  = request.args.get('year', None)
+    semester  = request.args.get('semester', None)
+    teacher_id  = request.args.get('teacherid', None)
+
+    all_classes_by_year_semester_teacher = fetch_all_classes_by_year_semester_teacher(connection, year, semester, teacher_id)
+    if all_classes_by_year_semester_teacher != None:
+        response = jsonify(all_classes_by_year_semester_teacher)
+        return response
+    else:
+        abort(404)
+
     
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 @app.route('/get_in_attendance', methods = ['GET'])
@@ -378,6 +391,43 @@ def get_out_attendance():
     else:
         abort(404)
 
+@app.route('/get_standard_in_out_attendance', methods = ['GET'])
+def get_standard_in_out_attendance():
+    class_id  = request.args.get('classid', None)
+    day  = request.args.get('day', None)
+    in_out_attendance = fetch_standard_in_out_attendance(connection, class_id, day)
+    if in_out_attendance != None:
+        # convert any type (time type) to string
+        response = json.dumps(in_out_attendance, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)
+
+@app.route('/get_full_attendance', methods = ['GET'])
+def get_full_attendance():
+    class_id = request.args.get('classid', None)
+    date = request.args.get('date', None)
+    day = request.args.get('day', None)
+    full_attendance = fetch_full_attendance(connection, class_id, date, day)
+    if full_attendance != None:
+        # convert any type (time type) to string
+        response = json.dumps(full_attendance, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)
+
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+@app.route('/get_class_time_by_class_id', methods = ['GET'])
+def get_class_time_by_class_id():
+    class_id  = request.args.get('classid', None)
+    class_time = fetch_class_time_by_class_id(connection, class_id)
+    if class_time != None:
+        # convert any type (time type) to string
+        response = json.dumps(class_time, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)   
 
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< FACE RECOGNITION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -564,8 +614,8 @@ def face_rec():
 from datetime import datetime
 @app.route('/stop_video_stream')
 def stop_video_stream():
-    # global stop_cam 
-    # stop_cam = True
+    global stop_cam 
+    stop_cam = True
     for item in student_attendance_info:
         print(item)
     return jsonify(student_attendance_info)

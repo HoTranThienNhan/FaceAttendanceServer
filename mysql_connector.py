@@ -334,6 +334,18 @@ def fetch_class_by_teacher_and_class_id(connection, teacher_id, day, class_id):
         print("Cannot get class by teacher and class id")
     return cursor.fetchone()
 
+# get all classes by year and semester and teacher id
+def fetch_all_classes_by_year_semester_teacher(connection, year, semester, teacher_id):
+    cursor = connection.cursor(dictionary=True)
+    
+    try:
+        query = ("select * from classes where year = %s and semester = %s and teacherid = %s")
+        cursor.execute(query, (year, semester, teacher_id,))
+        print("Get all classes by year and semester and teacher id successfully")
+    except:
+        print("Cannot get all classes by year and semester and teacher id")
+    return cursor.fetchall()
+
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STUDENT GROUPS TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # get all students by class
 def fetch_all_students_by_class(connection, class_id):
@@ -378,6 +390,7 @@ def add_out_timesheet(connection, classid, studentid, date, timeout, soon):
         print("Cannot add new out timesheet")
         return False
 
+#
 def is_in_attendance_taken(connection, classid, date):
     cursor = connection.cursor(dictionary=True)
     try:
@@ -388,6 +401,7 @@ def is_in_attendance_taken(connection, classid, date):
         print("Cannot check if in attendance taken")
     return cursor.fetchall()
 
+#
 def is_out_attendance_taken(connection, classid, date):
     cursor = connection.cursor(dictionary=True)
     try:
@@ -397,3 +411,49 @@ def is_out_attendance_taken(connection, classid, date):
     except:
         print("Cannot check if out attendance taken")
     return cursor.fetchall()
+
+#
+def fetch_full_attendance(connection, classid, date, day):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""select classid, studentid, fullname,  
+                    min(day) day, min(date) date, 
+                    min(timein) timein, min(late) late, 
+                    min(timeout) timeout, min(soon) soon 
+                    from (
+                        select classid, studentid, day, date, timein, late, timeout, soon 
+	                        from timesheet where classid = %s and date = %s
+                        union
+                        select s.classid, s.studentid, null as day, null as date, null as timein, null as late, null as timeout, null as soon 
+	                        from studentgroups s, timesheet t where s.classid = t.classid and s.classid = %s and t.day = %s
+                    ) as attendance_table 
+                    left join students on attendance_table.studentid = students.id 
+                    group by classid, studentid""")
+        cursor.execute(query, (classid, date, classid, day))
+        print("Get full attendance successfully")
+    except:
+        print("Cannot get full attendance")
+    return cursor.fetchall()
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< CLASSTIME TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#
+def fetch_class_time_by_class_id(connection, classid):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("select * from classtime where classid = %s")
+        cursor.execute(query, (classid,))
+        print("Get class time by class id successfully")
+    except:
+        print("Cannot get class time by class id")
+    return cursor.fetchall()
+
+#
+def fetch_standard_in_out_attendance(connection, classid, day):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("select * from classtime where classid = %s and day = %s")
+        cursor.execute(query, (classid, day))
+        print("Get standard time in/out successfully")
+    except:
+        print("Cannot get standard time in/out")
+    return cursor.fetchone()
