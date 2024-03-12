@@ -304,14 +304,13 @@ def create_new_class(connection, request_data):
 # get all classes by teacher
 def fetch_all_classes_by_teacher(connection, teacher_id, day):
     cursor = connection.cursor(dictionary=True)
-    today = 'Monday' #test
     try:
         query = ("""select classes.*, courses.name, classtime.timein, classtime.timeout from classes 
                  left join courses on classes.courseid = courses.id
                  left join classtime on classes.id = classtime.classid
                  where teacherid = %s
                  and classtime.day = %s""")
-        cursor.execute(query, (teacher_id, today,))
+        cursor.execute(query, (teacher_id, day,))
         print("Get all classes by teacher successfully")
     except:
         print("Cannot get all classes by teacher")
@@ -320,7 +319,6 @@ def fetch_all_classes_by_teacher(connection, teacher_id, day):
 # get all classes by teacher and class id
 def fetch_class_by_teacher_and_class_id(connection, teacher_id, day, class_id):
     cursor = connection.cursor(dictionary=True)
-    today = 'Monday' #test
     try:
         query = ("""select classes.*, courses.name, classtime.timein, classtime.timeout from classes 
                  left join courses on classes.courseid = courses.id
@@ -328,7 +326,7 @@ def fetch_class_by_teacher_and_class_id(connection, teacher_id, day, class_id):
                  where teacherid = %s
                  and classtime.day = %s
                  and classes.id = %s""")
-        cursor.execute(query, (teacher_id, today, class_id,))
+        cursor.execute(query, (teacher_id, day, class_id,))
         print("Get class by teacher and class id successfully")
     except:
         print("Cannot get class by teacher and class id")
@@ -360,14 +358,29 @@ def fetch_all_students_by_class(connection, class_id):
 
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-
-# add in timesheet
-def add_in_timesheet(connection, classid, studentid, day, date, timein, late):
+# create timesheet of today
+def create_class_timesheet_of_today(connection, class_id, day, date):
     cursor = connection.cursor(dictionary=True)
     try:
-        query = ("""insert into timesheet (classid, studentid, day, date, timein, late, timeout, soon) values 
-                 (%s, %s, %s, %s, %s, %s, %s, %s)""")
-        cursor.execute(query, (classid, studentid, day, date, timein, late, None, None))
+        all_students_by_class = fetch_all_students_by_class(connection, class_id)
+        for student in all_students_by_class:
+            student_id = student['studentid']
+            query = ("insert into timesheet (classid, studentid, day, date) values (%s, %s, %s, %s)")
+            cursor.execute(query, (class_id, student_id, day, date))
+        print("Create today class timesheet successfully")
+        connection.commit()
+        return True
+    except Exception as e:
+        print(e)
+        print("Cannot create today class timesheet")
+        return False
+
+# add in timesheet
+def add_in_timesheet(connection, class_id, student_id, date, time_in, late):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""update timesheet set timein = %s, late = %s where classid = %s and studentid = %s and date = %s""")
+        cursor.execute(query, (time_in, late, class_id, student_id, date))
         print("Add new in timesheet successfully")
         connection.commit()
         return True
@@ -377,11 +390,11 @@ def add_in_timesheet(connection, classid, studentid, day, date, timein, late):
         return False
     
 # add out timesheet
-def add_out_timesheet(connection, classid, studentid, date, timeout, soon):
+def add_out_timesheet(connection, class_id, student_id, date, time_out, soon):
     cursor = connection.cursor(dictionary=True)
     try:
         query = ("""update timesheet set timeout = %s, soon = %s where classid = %s and studentid = %s and date = %s""")
-        cursor.execute(query, (timeout, soon, classid, studentid, date))
+        cursor.execute(query, (time_out, soon, class_id, student_id, date))
         print("Add new out timesheet successfully")
         connection.commit()
         return True
@@ -391,45 +404,34 @@ def add_out_timesheet(connection, classid, studentid, date, timeout, soon):
         return False
 
 #
-def is_in_attendance_taken(connection, classid, date):
+def is_in_attendance_taken(connection, class_id, date):
     cursor = connection.cursor(dictionary=True)
     try:
         query = ("select * from timesheet where classid = %s and date = %s and timein is not null")
-        cursor.execute(query, (classid, date))
+        cursor.execute(query, (class_id, date))
         print("Check if in attendance taken successfully")
     except:
         print("Cannot check if in attendance taken")
     return cursor.fetchall()
 
 #
-def is_out_attendance_taken(connection, classid, date):
+def is_out_attendance_taken(connection, class_id, date):
     cursor = connection.cursor(dictionary=True)
     try:
         query = ("select * from timesheet where classid = %s and date = %s and timeout is not null")
-        cursor.execute(query, (classid, date))
+        cursor.execute(query, (class_id, date))
         print("Check if out attendance taken successfully")
     except:
         print("Cannot check if out attendance taken")
     return cursor.fetchall()
 
 #
-def fetch_full_attendance(connection, classid, date, day):
+def fetch_full_attendance(connection, class_id, date):
     cursor = connection.cursor(dictionary=True)
     try:
-        query = ("""select classid, studentid, fullname,  
-                    min(day) day, min(date) date, 
-                    min(timein) timein, min(late) late, 
-                    min(timeout) timeout, min(soon) soon 
-                    from (
-                        select classid, studentid, day, date, timein, late, timeout, soon 
-	                        from timesheet where classid = %s and date = %s
-                        union
-                        select s.classid, s.studentid, null as day, null as date, null as timein, null as late, null as timeout, null as soon 
-	                        from studentgroups s, timesheet t where s.classid = t.classid and s.classid = %s and t.day = %s
-                    ) as attendance_table 
-                    left join students on attendance_table.studentid = students.id 
-                    group by classid, studentid""")
-        cursor.execute(query, (classid, date, classid, day))
+        query = ("""select * from timesheet left join students on timesheet.studentid = students.id 
+                 where classid = %s and date = %s""")
+        cursor.execute(query, (class_id, date))
         print("Get full attendance successfully")
     except:
         print("Cannot get full attendance")
@@ -437,22 +439,22 @@ def fetch_full_attendance(connection, classid, date, day):
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< CLASSTIME TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 #
-def fetch_class_time_by_class_id(connection, classid):
+def fetch_class_time_by_class_id(connection, class_id):
     cursor = connection.cursor(dictionary=True)
     try:
         query = ("select * from classtime where classid = %s")
-        cursor.execute(query, (classid,))
+        cursor.execute(query, (class_id,))
         print("Get class time by class id successfully")
     except:
         print("Cannot get class time by class id")
     return cursor.fetchall()
 
 #
-def fetch_standard_in_out_attendance(connection, classid, day):
+def fetch_standard_in_out_attendance(connection, class_id, day):
     cursor = connection.cursor(dictionary=True)
     try:
         query = ("select * from classtime where classid = %s and day = %s")
-        cursor.execute(query, (classid, day))
+        cursor.execute(query, (class_id, day))
         print("Get standard time in/out successfully")
     except:
         print("Cannot get standard time in/out")

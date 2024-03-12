@@ -216,7 +216,6 @@ def update_student():
 @app.route('/get_all_students_by_class', methods = ['GET'])
 def get_all_students_by_class():
     class_id  = request.args.get('classid', None)
-    print(class_id)
     all_students_by_class = fetch_all_students_by_class(connection, class_id)
     if all_students_by_class != None:
         response = jsonify(all_students_by_class)
@@ -366,12 +365,26 @@ def get_all_classes_by_year_semester_teacher():
         abort(404)
 
     
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>     
+@app.route('/create_today_class_timesheet', methods = ['POST'])
+def create_today_class_timesheet():
+    class_id = request.args.get('classid', None)
+    day = get_day_of_today()
+    today = date.today()
+    try:
+        success = create_class_timesheet_of_today(connection, class_id, day, today)
+        if success == True:
+            return '', 200
+        else:
+            abort(404)
+    except:
+        abort(404)
+
 @app.route('/get_in_attendance', methods = ['GET'])
 def get_in_attendance():
     class_id  = request.args.get('classid', None)
-    date='2024-03-04'
-    in_attendance = is_in_attendance_taken(connection, class_id, date)
+    today = date.today()
+    in_attendance = is_in_attendance_taken(connection, class_id, today)
     if in_attendance != None:
         # convert any type (time type) to string
         response = json.dumps(in_attendance, indent=4, sort_keys=True, default=str)
@@ -382,8 +395,8 @@ def get_in_attendance():
 @app.route('/get_out_attendance', methods = ['GET'])
 def get_out_attendance():
     class_id  = request.args.get('classid', None)
-    date='2024-03-04'
-    out_attendance = is_out_attendance_taken(connection, class_id, date)
+    today = date.today()
+    out_attendance = is_out_attendance_taken(connection, class_id, today)
     if out_attendance != None:
         # convert any type (time type) to string
         response = json.dumps(out_attendance, indent=4, sort_keys=True, default=str)
@@ -407,8 +420,7 @@ def get_standard_in_out_attendance():
 def get_full_attendance():
     class_id = request.args.get('classid', None)
     date = request.args.get('date', None)
-    day = request.args.get('day', None)
-    full_attendance = fetch_full_attendance(connection, class_id, date, day)
+    full_attendance = fetch_full_attendance(connection, class_id, date)
     if full_attendance != None:
         # convert any type (time type) to string
         response = json.dumps(full_attendance, indent=4, sort_keys=True, default=str)
@@ -539,26 +551,28 @@ def videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, T
                             today = date.today()
                             day = get_day_of_today()
                             ### get standard time in and time out
-                            class_by_teacher_and_class_id = fetch_class_by_teacher_and_class_id(connection, attendance_teacher_id, 'Monday', attendance_class_id)
+                            class_by_teacher_and_class_id = fetch_class_by_teacher_and_class_id(connection, attendance_teacher_id, day, attendance_class_id)
                             standard_time_in = class_by_teacher_and_class_id['timein']
                             standard_time_out = class_by_teacher_and_class_id['timeout']
+
 
                             ### if student not exists in student_attendance_info list and student belongs to student_attendance_list
                             ### then add student attendance to student_attendance_info list 
                             if not any(obj['student'] == name for obj in student_attendance_info) \
                             and any(obj == name for obj in student_attendance_list):
+                                # creating today timesheet for this class
+                                create_class_timesheet_of_today(connection, attendance_class_id, day, today)
+                                # add to list
                                 student_attendance_info.append({
                                     'student': name,
                                     'time': current_time
                                 })
                                 if (attendance_type == 'in'):
                                     late = calculate_late_between_in_and_standard(current_time, str(standard_time_in))
-                                    # change day=day and date=today
-                                    add_in_timesheet(connection=connection, classid=attendance_class_id, studentid=name, day='Monday', date='2024-03-04', timein=current_time, late=late)
+                                    add_in_timesheet(connection=connection, class_id=attendance_class_id, student_id=name, date=today, time_in=current_time, late=late)
                                 elif (attendance_type == 'out'):
                                     soon = calculate_soon_between_out_and_standard(current_time, str(standard_time_out))
-                                    # change day=day and date=today
-                                    add_out_timesheet(connection=connection, classid=attendance_class_id, studentid=name, date='2024-03-04', timeout=current_time, soon=soon)
+                                    add_out_timesheet(connection=connection, class_id=attendance_class_id, student_id=name, date=today, time_out=current_time, soon=soon)
 
 
                         else:
