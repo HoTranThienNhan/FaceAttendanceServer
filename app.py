@@ -10,6 +10,7 @@ import shutil
 from flask_cors import CORS
 from mysql_connector import *
 from utils import *
+import base64
  
 app = Flask(__name__)
 CORS(app, origins='http://localhost:3000')
@@ -223,6 +224,15 @@ def get_all_students_by_class():
     else:
         abort(404)
 
+@app.route('/get_student_image', methods = ['GET'])
+def get_student_image():
+    student_id  = request.args.get('studentid', None)
+    file_img_name = 'Dataset/processed/' + student_id + '/0.png'
+    with open(file_img_name, "rb") as image_file:
+        encoded_string = base64.b64encode(image_file.read()).decode()
+        return jsonify({'img': "data:image/png;base64," + encoded_string})
+
+
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< COURSES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 @app.route('/create_course', methods = ['POST'])
 def create_course():
@@ -269,6 +279,16 @@ def update_status_course():
 @app.route('/get_all_courses', methods = ['GET'])
 def get_all_courses():
     all_courses = fetch_all_courses(connection)
+
+    if all_courses != None:
+        response = jsonify(all_courses)
+        return response
+    else:
+        abort(404)
+
+@app.route('/get_all_active_courses', methods = ['GET'])
+def get_all_active_courses():
+    all_courses = fetch_all_active_courses(connection)
 
     if all_courses != None:
         response = jsonify(all_courses)
@@ -326,6 +346,16 @@ def create_class():
     except:
         abort(404)
 
+@app.route('/get_all_classes', methods = ['GET'])
+def get_all_classes():
+    all_classes = fetch_all_classes(connection)
+    if all_classes != None:
+        # convert any type (time type) to string
+        response = json.dumps(all_classes, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)        
+
 @app.route('/get_all_classes_by_teacher', methods = ['GET'])
 def get_all_classes_by_teacher():
     teacher_id  = request.args.get('teacherid', None)
@@ -360,6 +390,18 @@ def get_all_classes_by_year_semester_teacher():
     all_classes_by_year_semester_teacher = fetch_all_classes_by_year_semester_teacher(connection, year, semester, teacher_id)
     if all_classes_by_year_semester_teacher != None:
         response = jsonify(all_classes_by_year_semester_teacher)
+        return response
+    else:
+        abort(404)
+
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< CLASSTIME >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  
+@app.route('/get_all_class_time', methods = ['GET'])
+def get_all_class_time():
+    all_class_time = fetch_all_class_time(connection)
+    if all_class_time != None:
+        # convert any type (time type) to string
+        response = json.dumps(all_class_time, indent=4, sort_keys=True, default=str)
         return response
     else:
         abort(404)
@@ -428,8 +470,18 @@ def get_full_attendance():
     else:
         abort(404)
 
+@app.route('/get_full_attendance_by_student_id', methods = ['GET'])
+def get_full_attendance_by_student_id():
+    class_id = request.args.get('classid', None)
+    student_id = request.args.get('studentid', None)
+    full_attendance_by_student_id = fetch_full_attendance_by_student_id(connection, class_id, student_id)
+    if full_attendance_by_student_id != None:
+        # convert any type (time type) to string
+        response = json.dumps(full_attendance_by_student_id, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)
 
-# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 @app.route('/get_class_time_by_class_id', methods = ['GET'])
 def get_class_time_by_class_id():
     class_id  = request.args.get('classid', None)
@@ -614,7 +666,7 @@ def face_rec():
         'TRAIN',      # mode ['TRAIN', 'CLASSIFY']
         'Dataset/processed',     # aligned face folder
         'Models/20180402-114759.pb',    # model
-        'Models/facemodel.pkl',      # pickle file
+        'Models/facemodel.pkl',      # pickle file (classifier_filename)
         '--batch_size', '1000'   # number of images to process in a batch
     ]))
 
@@ -633,7 +685,6 @@ def stop_video_stream():
     for item in student_attendance_info:
         print(item)
     return jsonify(student_attendance_info)
-
 
 
 if __name__ == "__main__":

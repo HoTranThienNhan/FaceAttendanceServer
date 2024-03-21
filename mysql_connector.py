@@ -204,6 +204,17 @@ def fetch_all_courses(connection):
         print("Cannot get all courses")
     return cursor.fetchall()
 
+# get all active courses
+def fetch_all_active_courses(connection):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("select * from courses where active = 1")
+        cursor.execute(query)
+        print("Get all active courses successfully")
+    except:
+        print("Cannot get all active courses")
+    return cursor.fetchall()
+
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TEACHERS TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # get all teachers
@@ -301,6 +312,21 @@ def create_new_class(connection, request_data):
         print("Cannot add new class")
     return False
 
+# get all classes 
+def fetch_all_classes(connection):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""select c.*, u.fullname as teachername, cs.name as coursename 
+                 from classes c, users u, courses cs 
+                 where c.teacherid = u.id 
+                 and c.courseid = cs.id
+                 order by c.id asc""")
+        cursor.execute(query)
+        print("Get all classes successfully")
+    except:
+        print("Cannot get all classes")
+    return cursor.fetchall()
+
 # get all classes by teacher
 def fetch_all_classes_by_teacher(connection, teacher_id, day):
     cursor = connection.cursor(dictionary=True)
@@ -349,7 +375,7 @@ def fetch_all_classes_by_year_semester_teacher(connection, year, semester, teach
 def fetch_all_students_by_class(connection, class_id):
     cursor = connection.cursor(dictionary=True)
     try:
-        query = ("select * from studentgroups where classid = %s")
+        query = ("select * from studentgroups left join students on studentgroups.studentid = students.id where classid = %s")
         cursor.execute(query, (class_id,))
         print("Get all students by class successfully")
     except:
@@ -437,7 +463,33 @@ def fetch_full_attendance(connection, class_id, date):
         print("Cannot get full attendance")
     return cursor.fetchall()
 
+def fetch_full_attendance_by_student_id(connection, class_id, student_id):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""select t.classid, studentid, t.day, t.date, t.timein, t.timeout, late, soon, 
+                 fullname, c.timein as stdtimein, c.timeout as stdtimeout from timesheet t
+                 left join students s on t.studentid = s.id 
+                 left join classtime c on t.classid = c.classid and t.day = c.day 
+                 where t.classid = %s and studentid = %s""")
+        cursor.execute(query, (class_id, student_id))
+        print("Get full attendance by student id successfully")
+    except:
+        print("Cannot get full attendance by student id")
+    return cursor.fetchall()
+
+
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< CLASSTIME TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#
+def fetch_all_class_time(connection):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("select * from classtime")
+        cursor.execute(query)
+        print("Get all class time successfully")
+    except:
+        print("Cannot get all class time")
+    return cursor.fetchall()
+
 #
 def fetch_class_time_by_class_id(connection, class_id):
     cursor = connection.cursor(dictionary=True)
