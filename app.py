@@ -158,8 +158,9 @@ def create_directory_for_new_user():
     try:
         os.mkdir(path) 
     except FileExistsError:
+        message = "Student ID '" + newuser + "' has been already scanned."
         pass
-        abort(404)
+        return jsonify(message=message), 404
     return '', 200
 
 @app.route('/refresh_scan', methods = ['POST'])
@@ -187,10 +188,35 @@ def rescan_for_this_user():
         abort(404)
     return '', 200
 
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< USERS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+@app.route('/get_all_users', methods = ['GET'])
+def get_all_users():
+    all_users = fetch_all_users(connection)
+
+    if all_users != None:
+        response = jsonify(all_users)
+        return response
+    else:
+        abort(404)
+
+
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STUDENTS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 @app.route('/get_all_students', methods = ['GET'])
 def get_all_students():
     all_students = fetch_all_students(connection)
+
+    if all_students != None:
+        response = jsonify(all_students)
+        return response
+    else:
+        abort(404)
+
+@app.route('/get_available_students', methods = ['GET'])
+def get_available_students():
+    teacher_id = request.args.get('teacherid', None)
+    course_id = request.args.get('courseid', None)
+    all_students = fetch_available_students(connection, teacher_id, course_id)
 
     if all_students != None:
         response = jsonify(all_students)
@@ -241,11 +267,11 @@ def create_course():
     description = request.args.get('description', None)
     active = request.args.get('active', 1)
     try:
-        success = add_new_course(connection=connection, id=id, name=name, description=description, active=active)
+        success, message = add_new_course(connection=connection, id=id, name=name, description=description, active=active)
         if success == True:
-            return '', 200
+            return message, 200
         else:
-            abort(404)
+            return jsonify(message=message), 404
     except:
         abort(404)
 
@@ -312,11 +338,11 @@ def get_all_teachers():
 def add_teacher():
     request_data = json.loads(request.data)
     try:
-        success = add_new_teacher(connection=connection, request_data=request_data)
+        success, message = add_new_teacher(connection=connection, request_data=request_data)
         if success == True:
-            return '', 200
+            return message, 200
         else:
-            abort(404)
+            return jsonify(message=message), 404
     except:
         abort(404)
 
@@ -338,13 +364,13 @@ def update_teacher():
 def create_class():
     request_data = json.loads(request.data)
     try:
-        success = create_new_class(connection=connection, request_data=request_data)
+        success, message = create_new_class(connection=connection, request_data=request_data)
         if success == True:
-            return '', 200
+            return message, 200
         else:
-            abort(404)
+            return jsonify(message=message), 404
     except:
-        abort(404)
+        abort(404, message)
 
 @app.route('/get_all_classes', methods = ['GET'])
 def get_all_classes():
@@ -354,7 +380,17 @@ def get_all_classes():
         response = json.dumps(all_classes, indent=4, sort_keys=True, default=str)
         return response
     else:
-        abort(404)        
+        abort(404)    
+
+@app.route('/get_class_by_class_id', methods = ['GET'])
+def get_class_by_class_id(class_id):
+    class_id = request.args.get('class_id', None)
+    class_by_class_id = fetch_class_by_class_id(connection, class_id)
+    if class_by_class_id != None:
+        response = jsonify(class_by_class_id)
+        return response
+    else:
+        abort(404)    
 
 @app.route('/get_all_classes_by_teacher', methods = ['GET'])
 def get_all_classes_by_teacher():
@@ -405,6 +441,29 @@ def get_all_class_time():
         return response
     else:
         abort(404)
+
+@app.route('/get_class_time_by_class_id', methods = ['GET'])
+def get_class_time_by_class_id():
+    class_id  = request.args.get('classid', None)
+    class_time = fetch_class_time_by_class_id(connection, class_id)
+    if class_time != None:
+        # convert any type (time type) to string
+        response = json.dumps(class_time, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)  
+
+# @app.route('/get_class_time_by_teacher_id_and_course_id', methods = ['GET'])
+# def get_class_time_by_teacher_id_and_course_id():
+#     teacher_id  = request.args.get('teacherid', None)
+#     course_id  = request.args.get('courseid', None)
+#     class_time = fetch_class_time_by_teacher_id_and_course_id(connection, teacher_id, course_id)
+#     if class_time != None:
+#         # convert any type (time type) to string
+#         response = json.dumps(class_time, indent=4, sort_keys=True, default=str)
+#         return response
+#     else:
+#         abort(404)  
 
     
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TIMESHEET >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>     
@@ -480,18 +539,7 @@ def get_full_attendance_by_student_id():
         response = json.dumps(full_attendance_by_student_id, indent=4, sort_keys=True, default=str)
         return response
     else:
-        abort(404)
-
-@app.route('/get_class_time_by_class_id', methods = ['GET'])
-def get_class_time_by_class_id():
-    class_id  = request.args.get('classid', None)
-    class_time = fetch_class_time_by_class_id(connection, class_id)
-    if class_time != None:
-        # convert any type (time type) to string
-        response = json.dumps(class_time, indent=4, sort_keys=True, default=str)
-        return response
-    else:
-        abort(404)   
+        abort(404) 
 
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< FACE RECOGNITION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

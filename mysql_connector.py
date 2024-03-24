@@ -30,7 +30,7 @@ def use_face_attendance_database(connection, database):
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< USERS TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # get username and password of all users
-def get_all_users(connection):
+def fetch_all_users(connection):
     cursor = connection.cursor(dictionary=True)
     try:
         query = "select * from users"
@@ -93,6 +93,25 @@ def fetch_all_students(connection):
         print("Cannot get all students")
     return cursor.fetchall()
 
+# get available students
+def fetch_available_students(connection, teacher_id, course_id):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""select id, fullname from students where id not in
+                    (select studentid from studentgroups sg where sg.classid in (
+                        select c.id
+                            from classes c, users u, courses cs 
+                            where c.teacherid = u.id 
+                            and c.courseid = cs.id
+                            and c.teacherid = %s
+                            and c.courseid = %s 
+                            order by c.id asc))""")
+        cursor.execute(query, (teacher_id, course_id))
+        print("Get available students successfully")
+    except:
+        print("Cannot get available students")
+    return cursor.fetchall()
+
 def update_the_student(connection, id, fullname, phone, address, email):
     cursor = connection.cursor(dictionary=True)
     existed_student = check_student_existed(connection=connection, id=id)
@@ -136,13 +155,15 @@ def add_new_course(connection, id, name, description, active):
             cursor.execute(query, (id, name, description, active))
             connection.commit()
             print("Add new course successfully")
-            return True
+            message = "Add new course successfully"
+            return True, message
         except Exception as e:
             print(e)
             print("Cannot add new course")
     else:
+        message = "Course '" + id + "' has already existed."
         print("Course has already existed")
-        return False
+        return False, message
     
 # update course
 def update_the_course(connection, id, name, description):
@@ -232,6 +253,18 @@ def fetch_all_teachers(connection):
         print("Cannot get all teachers")
     return cursor.fetchall()
 
+# get teacher by id
+def fetch_teacher_by_id(connection, id):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""select * from users where users.id = %s""")
+        cursor.execute(query, (id,))
+        print("Get teacher by id successfully")
+    except Exception as e:
+        print(e)
+        print("Cannot get teacher by id")
+    return cursor.fetchone()
+
 # add new teacher
 def add_new_teacher(connection, request_data):
     cursor = connection.cursor(dictionary=True)
@@ -243,18 +276,27 @@ def add_new_teacher(connection, request_data):
     username = request_data['username']
     password = request_data['password']
     hashed_pass = bcrypt.generate_password_hash(password).decode('utf-8')
-    try:
-        query = ("insert into users (id, username, password, fullname, phone, address, email) values (%s, %s, %s, %s, %s, %s, %s)")
-        cursor.execute(query, (id, username, hashed_pass, fullname, phone, address, email))
-        query_user_role = ("insert into userrole (userid, roleid) values (%s, 'TC')")
-        cursor.execute(query_user_role, (id))
-        print("Add new teacher successfully")
-        connection.commit()
-        return True
-    except Exception as e:
-        print(e)
-        print("Cannot add new teacher")
-        return False
+
+    existed_teacher = fetch_teacher_by_id(connection=connection, id=id)
+    if existed_teacher == None:
+        try:
+            query = ("insert into users (id, username, password, fullname, phone, address, email) values (%s, %s, %s, %s, %s, %s, %s)")
+            cursor.execute(query, (id, username, hashed_pass, fullname, phone, address, email))
+            query_user_role = ("insert into userrole (userid, roleid) values (%s, 'TC')")
+            cursor.execute(query_user_role, (id))
+            message = "Add new teacher successfully"
+            print("Add new teacher successfully")
+            connection.commit()
+            return True, message
+        except Exception as e:
+            print(e)
+            message = "Cannot add new teacher"
+            print("Cannot add new teacher")
+            return False, message
+    else:
+        message = "Teacher '" + id + "' has already existed."
+        print("Teacher has already existed")
+        return False, message
     
 # update the teacher
 def update_the_teacher(connection, request_data):
@@ -289,28 +331,35 @@ def create_new_class(connection, request_data):
     students = request_data['students']
     times = request_data['time']
     cursor = connection.cursor(dictionary=True)
-    try:
-        # insert class table
-        query_class = ("insert into classes (id, year, semester, teacherid, courseid) values (%s, %s, %s, %s, %s)")
-        cursor.execute(query_class, (class_id, year, semester, teacher_id, course_id))
-        print("Add class information successfully")
-        # insert student groups table
-        for student_id in students:
-            query_student_groups = ("insert into studentgroups (classid, studentid) values (%s, %s)")
-            cursor.execute(query_student_groups, (class_id, student_id))
-        print("Add student groups successfully")
-        # insert classtime table
-        for each_day in times:
-            if each_day['timeIn'] != '' and each_day['timeOut'] != '':  # only insert day that has time in and time out
-                query_class_time = ("insert into classtime (classid, day, timein, timeout) values (%s, %s, %s, %s)")
-                cursor.execute(query_class_time, (class_id, each_day['day'], each_day['timeIn'], each_day['timeOut']))
-        print("Add class time successfully")
-        connection.commit()
-        return True
-    except Exception as e:
-        print(e)
-        print("Cannot add new class")
-    return False
+
+    # check if class existed
+    existed_class = fetch_class_by_class_id(connection=connection, class_id=class_id)
+    if (existed_class != None):
+        print("Class ID has already created")
+        return False, "Class ID '" + class_id + "' has already created."
+    else:
+        try:
+            # insert class table
+            query_class = ("insert into classes (id, year, semester, teacherid, courseid) values (%s, %s, %s, %s, %s)")
+            cursor.execute(query_class, (class_id, year, semester, teacher_id, course_id))
+            print("Add class information successfully")
+            # insert student groups table
+            for student_id in students:
+                query_student_groups = ("insert into studentgroups (classid, studentid) values (%s, %s)")
+                cursor.execute(query_student_groups, (class_id, student_id))
+            print("Add student groups successfully")
+            # insert classtime table
+            for each_day in times:
+                if each_day['timeIn'] != '' and each_day['timeOut'] != '':  # only insert day that has time in and time out
+                    query_class_time = ("insert into classtime (classid, day, timein, timeout) values (%s, %s, %s, %s)")
+                    cursor.execute(query_class_time, (class_id, each_day['day'], each_day['timeIn'], each_day['timeOut']))
+            print("Add class time successfully")
+            connection.commit()
+            return True, "Create new class sunccessfully"
+        except Exception as e:
+            print(e)
+            print("Cannot add new class")
+        return False, "Cannot add new class"
 
 # get all classes 
 def fetch_all_classes(connection):
@@ -326,6 +375,17 @@ def fetch_all_classes(connection):
     except:
         print("Cannot get all classes")
     return cursor.fetchall()
+
+# get class by class id
+def fetch_class_by_class_id(connection, class_id):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("""select * from classes where id = %s""")
+        cursor.execute(query, (class_id,))
+        print("Get class by class id successfully")
+    except:
+        print("Cannot get class by class id")
+    return cursor.fetchone()
 
 # get all classes by teacher
 def fetch_all_classes_by_teacher(connection, teacher_id, day):
