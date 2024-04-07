@@ -18,6 +18,12 @@ def get_day_of_today():
     else:
         return 'Sunday'
     
+def get_this_month():
+    return today.month
+
+def get_this_year():
+    return today.year
+    
 def convert_timedelta_to_minutes(duration):
     days, seconds = duration.days, duration.seconds
     hours = days * 24 + seconds // 3600

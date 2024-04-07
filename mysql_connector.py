@@ -388,7 +388,7 @@ def fetch_class_by_class_id(connection, class_id):
     return cursor.fetchone()
 
 # get all classes by teacher
-def fetch_all_classes_by_teacher(connection, teacher_id, day):
+def fetch_all_classes_by_teacher_today(connection, teacher_id, day):
     cursor = connection.cursor(dictionary=True)
     try:
         query = ("""select classes.*, courses.name, classtime.timein, classtime.timeout from classes 
@@ -559,6 +559,17 @@ def fetch_class_time_by_class_id(connection, class_id):
         print("Get class time by class id successfully")
     except:
         print("Cannot get class time by class id")
+    return cursor.fetchall()
+
+#
+def fetch_time_in_and_out_by_teacher_id_and_day(connection, teacher_id, day):
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = ("select * from classes c, classtime ct where c.id = ct.classid and c.teacherid = %s and ct.day = %s")
+        cursor.execute(query, (teacher_id, day))
+        print("Get time in and out by teacher id and day successfully")
+    except:
+        print("Cannot get time in and out by teacher id and day")
     return cursor.fetchall()
 
 #

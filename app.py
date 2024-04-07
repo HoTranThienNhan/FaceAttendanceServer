@@ -392,15 +392,25 @@ def get_class_by_class_id(class_id):
     else:
         abort(404)    
 
-@app.route('/get_all_classes_by_teacher', methods = ['GET'])
+@app.route('/get_all_classes_by_teacher_today', methods = ['GET'])
 def get_all_classes_by_teacher():
+    semesterMonths = {1: [1, 2, 3, 4, 5], 2: [6, 7, 8, 9, 10, 11, 12]}  # semester 1 beginning from month 1 to 5 and semester 2 from 6 to 9
     teacher_id  = request.args.get('teacherid', None)
     day = get_day_of_today()
-    all_classes_by_teacher = fetch_all_classes_by_teacher(connection, teacher_id, day)
+    day = "Monday"  #??? remove this, this line for test
+    month = get_this_month()
+    year = get_this_year()
+    all_classes_by_teacher = fetch_all_classes_by_teacher_today(connection, teacher_id, day)
+
     if all_classes_by_teacher != None:
-        # convert any type (time type) to string
-        response = json.dumps(all_classes_by_teacher, indent=4, sort_keys=True, default=str)
-        return response
+        for eachClass in all_classes_by_teacher:
+            for eachSemester in semesterMonths:
+                if eachClass['semester'] == eachSemester and year == int(eachClass['year']):    
+                    if month in semesterMonths[eachSemester]:
+                        # convert any type (time type) to string
+                        response = json.dumps(all_classes_by_teacher, indent=4, sort_keys=True, default=str)
+                        return response
+        return '', 200
     else:
         abort(404)
 
@@ -449,6 +459,18 @@ def get_class_time_by_class_id():
     if class_time != None:
         # convert any type (time type) to string
         response = json.dumps(class_time, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)  
+
+@app.route('/get_time_in_and_out_by_teacher_id_and_day', methods = ['GET'])
+def get_time_in_and_out_by_teacher_id_and_day():
+    teacher_id = request.args.get('teacherid', None)
+    day = request.args.get('day', None)
+    time_in_and_out = fetch_time_in_and_out_by_teacher_id_and_day(connection, teacher_id, day)
+    if time_in_and_out != None:
+        # convert any type (time type) to string
+        response = json.dumps(time_in_and_out, indent=4, sort_keys=True, default=str)
         return response
     else:
         abort(404)  
