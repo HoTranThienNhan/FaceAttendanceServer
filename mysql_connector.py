@@ -33,7 +33,8 @@ def use_face_attendance_database(connection, database):
 def fetch_all_users(connection):
     cursor = connection.cursor(dictionary=True)
     try:
-        query = "select * from users"
+        query = """select users.*, roles.rolename from users, userrole, roles 
+                 where users.id = userrole.userid and roles.id = userrole.roleid"""
         cursor.execute(query)
         print("Get all users successfully")
     except:
@@ -236,7 +237,6 @@ def fetch_all_active_courses(connection):
         print("Cannot get all active courses")
     return cursor.fetchall()
 
-
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TEACHERS TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # get all teachers
 def fetch_all_teachers(connection):
@@ -273,6 +273,7 @@ def add_new_teacher(connection, request_data):
     phone = request_data['phone']
     address = request_data['address']
     email = request_data['email']
+    gender = request_data['gender']
     username = request_data['username']
     password = request_data['password']
     hashed_pass = bcrypt.generate_password_hash(password).decode('utf-8')
@@ -280,8 +281,8 @@ def add_new_teacher(connection, request_data):
     existed_teacher = fetch_teacher_by_id(connection=connection, id=id)
     if existed_teacher == None:
         try:
-            query = ("insert into users (id, username, password, fullname, phone, address, email) values (%s, %s, %s, %s, %s, %s, %s)")
-            cursor.execute(query, (id, username, hashed_pass, fullname, phone, address, email))
+            query = ("insert into users (id, username, password, fullname, phone, address, email, gender) values (%s, %s, %s, %s, %s, %s, %s, %s)")
+            cursor.execute(query, (id, username, hashed_pass, fullname, phone, address, email, gender))
             query_user_role = ("insert into userrole (userid, roleid) values (%s, 'TC')")
             cursor.execute(query_user_role, (id))
             message = "Add new teacher successfully"
@@ -306,12 +307,13 @@ def update_the_teacher(connection, request_data):
     phone = request_data['phone']
     address = request_data['address']
     email = request_data['email']
+    gender = request_data['gender']
     username = request_data['username']
     try:
         query_user_role = ("update userrole set userid = %s where userid = %s")
         cursor.execute(query_user_role, (id, id))
-        query = ("update users set id = %s, fullname = %s, phone = %s, address = %s, email = %s, username = %s where id = %s")
-        cursor.execute(query, (id, fullname, phone, address, email, username, id))
+        query = ("update users set id = %s, fullname = %s, phone = %s, address = %s, email = %s, gender = %s, username = %s where id = %s")
+        cursor.execute(query, (id, fullname, phone, address, email, gender, username, id))
         print("Update teacher successfully")
         connection.commit()
         return True
@@ -387,7 +389,7 @@ def fetch_class_by_class_id(connection, class_id):
         print("Cannot get class by class id")
     return cursor.fetchone()
 
-# get all classes by teacher
+# get all classes by teacher today
 def fetch_all_classes_by_teacher_today(connection, teacher_id, day):
     cursor = connection.cursor(dictionary=True)
     try:
@@ -423,7 +425,8 @@ def fetch_all_classes_by_year_semester_teacher(connection, year, semester, teach
     cursor = connection.cursor(dictionary=True)
     
     try:
-        query = ("select * from classes where year = %s and semester = %s and teacherid = %s")
+        query = ("""select classes.*, courses.name from classes, courses 
+                 where year = %s and semester = %s and teacherid = %s and classes.courseid = courses.id""")
         cursor.execute(query, (year, semester, teacher_id,))
         print("Get all classes by year and semester and teacher id successfully")
     except:
@@ -563,7 +566,7 @@ def fetch_class_time_by_class_id(connection, class_id):
 
 #
 def fetch_time_in_and_out_by_teacher_id_and_day(connection, teacher_id, day):
-    cursor = connection.cursor(dictionary=True)
+    cursor = connection.cursor(dictionary=True, buffered=True)
     try:
         query = ("select * from classes c, classtime ct where c.id = ct.classid and c.teacherid = %s and ct.day = %s")
         cursor.execute(query, (teacher_id, day))

@@ -21,6 +21,7 @@ bcrypt = Bcrypt(app)
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< MYSQL DATABASE CONNECTION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 connection = create_server_connection("localhost", "root", "root")
 use_face_attendance_database(connection, "face_attendance")
+# cursor = connection.cursor(dictionary=True)
 
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< IMAGES ALIGNMENT >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -62,7 +63,7 @@ def generate_images(id, fullname, phone, address, email):
 
             i += 1
         step += 1
-        if cv2.waitKey(1) & 0xFF == ord('q') or i == 20: 
+        if cv2.waitKey(1) & 0xFF == ord('q') or i == 30: 
             break
 
     # release video capture
