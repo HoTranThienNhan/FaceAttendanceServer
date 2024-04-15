@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, Response, abort, json
+from flask import Flask, jsonify, request, Response, abort, json, stream_with_context
 from flask_bcrypt import Bcrypt 
 import mysql.connector
 import cv2
@@ -11,6 +11,7 @@ from flask_cors import CORS
 from mysql_connector import *
 from utils import *
 import base64
+import time
  
 app = Flask(__name__)
 CORS(app, origins='http://localhost:3000')
@@ -21,7 +22,7 @@ bcrypt = Bcrypt(app)
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< MYSQL DATABASE CONNECTION >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 connection = create_server_connection("localhost", "root", "root")
 use_face_attendance_database(connection, "face_attendance")
-# cursor = connection.cursor(dictionary=True)
+cursor = connection.cursor(dictionary=True)
 
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< IMAGES ALIGNMENT >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -217,7 +218,7 @@ def get_all_students():
 def get_available_students():
     teacher_id = request.args.get('teacherid', None)
     course_id = request.args.get('courseid', None)
-    all_students = fetch_available_students(connection, teacher_id, course_id)
+    all_students = fetch_available_students(cursor=cursor, connection=connection, teacher_id=teacher_id, course_id=course_id)
 
     if all_students != None:
         response = jsonify(all_students)
@@ -315,7 +316,7 @@ def get_all_courses():
 
 @app.route('/get_all_active_courses', methods = ['GET'])
 def get_all_active_courses():
-    all_courses = fetch_all_active_courses(connection)
+    all_courses = fetch_all_active_courses(cursor=cursor, connection=connection)
 
     if all_courses != None:
         response = jsonify(all_courses)
@@ -327,7 +328,7 @@ def get_all_active_courses():
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< TEACHERS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 @app.route('/get_all_teachers', methods = ['GET'])
 def get_all_teachers():
-    all_teachers = fetch_all_teachers(connection)
+    all_teachers = fetch_all_teachers(cursor, connection)
 
     if all_teachers != None:
         response = jsonify(all_teachers)
@@ -339,7 +340,7 @@ def get_all_teachers():
 def add_teacher():
     request_data = json.loads(request.data)
     try:
-        success, message = add_new_teacher(connection=connection, request_data=request_data)
+        success, message = add_new_teacher(cursor=cursor, connection=connection, request_data=request_data)
         if success == True:
             return message, 200
         else:
@@ -351,7 +352,7 @@ def add_teacher():
 def update_teacher():
     request_data = json.loads(request.data)
     try:
-        success = update_the_teacher(connection=connection, request_data=request_data)
+        success = update_the_teacher(cursor=cursor, connection=connection, request_data=request_data)
         if success == True:
             return '', 200
         else:
@@ -420,6 +421,7 @@ def get_class_by_teacher_and_class_id():
     teacher_id  = request.args.get('teacherid', None)
     class_id  = request.args.get('classid', None)
     day = get_day_of_today()
+    day = "Monday" # this for test
     class_by_teacher_and_class_id = fetch_class_by_teacher_and_class_id(connection, teacher_id, day, class_id)
     if class_by_teacher_and_class_id != None:
         # convert any type (time type) to string
@@ -468,7 +470,7 @@ def get_class_time_by_class_id():
 def get_time_in_and_out_by_teacher_id_and_day():
     teacher_id = request.args.get('teacherid', None)
     day = request.args.get('day', None)
-    time_in_and_out = fetch_time_in_and_out_by_teacher_id_and_day(connection, teacher_id, day)
+    time_in_and_out = fetch_time_in_and_out_by_teacher_id_and_day(cursor=cursor, connection=connection, teacher_id=teacher_id, day=day)
     if time_in_and_out != None:
         # convert any type (time type) to string
         response = json.dumps(time_in_and_out, indent=4, sort_keys=True, default=str)
@@ -582,12 +584,14 @@ def set_attendance():
     global attendance_type
     global attendance_class_id
     global attendance_teacher_id
+    global stop_cam
 
     student_attendance_info = []
     student_attendance_list = []
     attendance_type = type
     attendance_class_id = class_id
     attendance_teacher_id = teacher_id
+    stop_cam = False
 
     try:
         all_students_by_class = fetch_all_students_by_class(connection, class_id)
@@ -596,6 +600,24 @@ def set_attendance():
         return '', 200
     except:
         abort(404)
+
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< JSON STREAM >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+@app.route('/json_stream')
+def json_stream():
+    global student_attendance_info 
+    global showed_student_attendance
+    student_attendance_info = []
+    showed_student_attendance = []  # student who is attended and showed in client side
+    def generator():
+        while stop_cam == False:
+            time.sleep(1)
+            if len(student_attendance_info) > 0:
+                if student_attendance_info[-1]['student'] not in showed_student_attendance:
+                    object_showed_student_attendance = {'student': student_attendance_info[-1]['student'], 'time': str(student_attendance_info[-1]['time'])}
+                    yield str(object_showed_student_attendance)
+                showed_student_attendance.append(student_attendance_info[-1]['student'])
+    return Response(stream_with_context(generator()), status=200, content_type='application/json')
 
 
 def videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected):
