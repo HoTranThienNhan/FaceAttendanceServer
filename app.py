@@ -42,7 +42,7 @@ def align_images(class_name):
 
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< GENERATE IMAGES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-def generate_images(id, fullname, phone, address, email):
+def generate_images(id, fullname, phone, address, email, gender):
     wCam, hCam = 500, 400
  
     cap = cv2.VideoCapture(0)
@@ -72,7 +72,7 @@ def generate_images(id, fullname, phone, address, email):
     cv2.destroyAllWindows()
 
     # add new student to database       
-    add_new_student(connection=connection, id=id, fullname=fullname, phone=phone, address=address, email=email)
+    add_new_student(connection=connection, id=id, fullname=fullname, phone=phone, address=address, email=email, gender=gender)
 
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< APP ROUTES >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -84,9 +84,10 @@ def open_video():
     phone = request.args['phone']
     address = request.args['address']
     email = request.args['email']
+    gender = request.args['gender']
     # Video streaming route. Put this in the src attribute of an img tag
     return Response(
-        generate_images(id=id, fullname=fullname, phone=phone, address=address, email=email),
+        generate_images(id=id, fullname=fullname, phone=phone, address=address, email=email, gender=gender),
         mimetype='multipart/x-mixed-replace; boundary=frame'
     )
 
@@ -353,9 +354,9 @@ def add_teacher():
 def update_teacher():
     request_data = json.loads(request.data)
     try:
-        success = update_the_teacher(connection=connection, request_data=request_data)
+        success, message = update_the_teacher(connection=connection, request_data=request_data)
         if success == True:
-            return '', 200
+            return message, 200
         else:
             abort(404)
     except:

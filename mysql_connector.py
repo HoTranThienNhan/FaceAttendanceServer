@@ -84,12 +84,12 @@ def get_user_teacher(connection, username, password):
 
 # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STUDENTS TABLE >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 # add new student
-def add_new_student(connection, id, fullname, phone, address, email):
+def add_new_student(connection, id, fullname, phone, address, email, gender):
     
     cursor = connection.cursor(dictionary=True, buffered=True)
     try:
-        query = ("insert into students (id, fullname, phone, address, email) values (%s, %s, %s, %s, %s)")
-        cursor.execute(query, (id, fullname, phone, address, email))
+        query = ("insert into students (id, fullname, phone, address, email, gender) values (%s, %s, %s, %s, %s, %s)")
+        cursor.execute(query, (id, fullname, phone, address, email, gender))
         print("Add new student successfully")
         connection.commit()
     except Exception as e:
@@ -315,6 +315,21 @@ def fetch_teacher_by_id(connection, id):
         cursor.close()
     return cursor.fetchone()
 
+# get teacher by id
+def fetch_teacher_by_username(connection, username):
+    
+    cursor = connection.cursor(dictionary=True, buffered=True)
+    try:
+        query = ("""select * from users where users.username = %s""")
+        cursor.execute(query, (username,))
+        print("Get teacher by username successfully")
+    except Exception as e:
+        print(e)
+        print("Cannot get teacher by username")
+    finally:
+        cursor.close()
+    return cursor.fetchone()
+
 # add new teacher
 def add_new_teacher(connection, request_data):
     
@@ -327,13 +342,20 @@ def add_new_teacher(connection, request_data):
     gender = request_data['gender']
     username = request_data['username']
     password = request_data['password']
-    hashed_pass = bcrypt.generate_password_hash(password).decode('utf-8')
+    # hashed_pass = bcrypt.generate_password_hash(password).decode('utf-8')
 
     existed_teacher = fetch_teacher_by_id(connection=connection, id=id)
     if existed_teacher == None:
+
+        existed_username = fetch_teacher_by_username(connection=connection, username=username)
+        if existed_username != None:
+            message = "Username '" + username + "' has already existed."
+            print("Username has already existed")
+            return False, message
+
         try:
             query = ("insert into users (id, username, password, fullname, phone, address, email, gender) values (%s, %s, %s, %s, %s, %s, %s, %s)")
-            cursor.execute(query, (id, username, hashed_pass, fullname, phone, address, email, gender))
+            cursor.execute(query, (id, username, password, fullname, phone, address, email, gender))
             query_user_role = ("insert into userrole (userid, roleid) values (%s, 'TC')")
             cursor.execute(query_user_role, (id))
             message = "Add new teacher successfully"
@@ -364,17 +386,25 @@ def update_the_teacher(connection, request_data):
     gender = request_data['gender']
     username = request_data['username']
     try:
+        # existed_username = fetch_teacher_by_username(connection=connection, username=username)
+        # if existed_username != None:
+        #     message = "Username '" + username + "' has already existed."
+        #     print("Username has already existed")
+        #     return False, message
+        
         query_user_role = ("update userrole set userid = %s where userid = %s")
         cursor.execute(query_user_role, (id, id))
         query = ("update users set id = %s, fullname = %s, phone = %s, address = %s, email = %s, gender = %s, username = %s where id = %s")
         cursor.execute(query, (id, fullname, phone, address, email, gender, username, id))
+        message = "Update teacher successfully"
         print("Update teacher successfully")
         connection.commit()
-        return True
+        return True, message
     except Exception as e:
         print(e)
-        print("Cannot add new teacher")
-        return False
+        message = "Cannot update teacher"
+        print("Cannot update teacher")
+        return False, message
     finally:
         cursor.close()
 
