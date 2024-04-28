@@ -195,8 +195,8 @@ def parse_arguments(argv):
 
 # if __name__ == '__main__':
 #     sys.argv[1:] = [
-#         'Dataset/raw',      # output directory
-#         'Dataset/processed',    # input directory   
+#         'Dataset/raw',      # input directory
+#         'Dataset/processed',    # output directory   
 #         '--image_size', '160',      # aligned image size
 #         '--margin', '32',   # margin bounding box
 #         '--random_order',   # shuffling the order of aligned images

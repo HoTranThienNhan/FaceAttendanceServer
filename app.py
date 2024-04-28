@@ -12,6 +12,8 @@ from mysql_connector import *
 from utils import *
 import base64
 import time
+import pickle
+import src.face_recognition as face_recog
  
 app = Flask(__name__)
 CORS(app, origins='http://localhost:3000')
@@ -129,6 +131,24 @@ def add_new():
             # align images
             align_images(studentId)
             hasSubdirectory = True
+    # classifying aligned face folder from MTCNN steps
+    # import src.face_recognition as face_recog
+    import src.classifier as clf
+    from src.classifier import parse_arguments
+    clf.main(parse_arguments([
+        'TRAIN',      # mode ['TRAIN', 'CLASSIFY']
+        'Dataset/processed',     # aligned face folder
+        'Models/20180402-114759.pb',    # model
+        'Models/facemodel.pkl',      # pickle file (classifier_filename)
+        '--batch_size', '1000'   # number of images to process in a batch
+    ]))
+    # global sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected 
+    # sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected = face_recog.Face_Rec().main()
+    global model, class_names 
+    CLASSIFIER_PATH = 'Models/facemodel.pkl'
+    with open(CLASSIFIER_PATH, 'rb') as file:
+        model, class_names = pickle.load(file)
+        
     if hasSubdirectory == False:
         abort(404)
     return '', 200
@@ -556,6 +576,28 @@ def get_full_attendance():
     else:
         abort(404)
 
+@app.route('/get_timesheet_by_class_id', methods = ['GET'])
+def get_timehseet_by_class_id():
+    class_id = request.args.get('classid', None)
+    full_attendance_by_classid = fetch_timesheet_by_class_id(connection, class_id)
+    if full_attendance_by_classid != None:
+        # convert any type (time type) to string
+        response = json.dumps(full_attendance_by_classid, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404)
+
+@app.route('/get_full_attendance_by_class_id', methods = ['GET'])
+def get_full_attendance_by_class_id():
+    class_id = request.args.get('classid', None)
+    full_attendance_by_class_id = fetch_full_attendance_by_class_id(connection, class_id)
+    if full_attendance_by_class_id != None:
+        # convert any type (time type) to string
+        response = json.dumps(full_attendance_by_class_id, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404) 
+
 @app.route('/get_full_attendance_by_student_id', methods = ['GET'])
 def get_full_attendance_by_student_id():
     class_id = request.args.get('classid', None)
@@ -564,6 +606,19 @@ def get_full_attendance_by_student_id():
     if full_attendance_by_student_id != None:
         # convert any type (time type) to string
         response = json.dumps(full_attendance_by_student_id, indent=4, sort_keys=True, default=str)
+        return response
+    else:
+        abort(404) 
+
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STATS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   
+@app.route('/get_total_number_late_soon_stats', methods = ['GET'])
+def get_total_number_late_soon_stats():
+    class_id = request.args.get('classid', None)
+    total_number_late_soon_stats = fetch_total_number_late_soon_stats(connection, class_id)
+    if total_number_late_soon_stats != None:
+        # convert any type (time type) to string
+        response = json.dumps(total_number_late_soon_stats, indent=4, sort_keys=True, default=str)
         return response
     else:
         abort(404) 
@@ -748,25 +803,34 @@ def videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, T
     cap.stream.release()
     cv2.destroyAllWindows()
 
+# loading model of face recognition using Facenet and SVM 
+# sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected = face_recog.Face_Rec().main()
+    
 
 @app.route('/face_rec')
 def face_rec():
     global stop_cam
 
     # classifying aligned face folder from MTCNN steps
-    import src.face_recognition as face_recog
-    import src.classifier as clf
-    from src.classifier import parse_arguments
-    clf.main(parse_arguments([
-        'TRAIN',      # mode ['TRAIN', 'CLASSIFY']
-        'Dataset/processed',     # aligned face folder
-        'Models/20180402-114759.pb',    # model
-        'Models/facemodel.pkl',      # pickle file (classifier_filename)
-        '--batch_size', '1000'   # number of images to process in a batch
-    ]))
+    # import src.face_recognition as face_recog
+    # import src.classifier as clf
+    # from src.classifier import parse_arguments
+    # clf.main(parse_arguments([
+    #     'TRAIN',      # mode ['TRAIN', 'CLASSIFY']
+    #     'Dataset/processed',     # aligned face folder
+    #     'Models/20180402-114759.pb',    # model
+    #     'Models/facemodel.pkl',      # pickle file (classifier_filename)
+    #     '--batch_size', '1000'   # number of images to process in a batch
+    # ]))
+
+    # sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected = face_recog.Face_Rec().main()
+    # return Response(
+    #     videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected),
+    #     mimetype='multipart/x-mixed-replace; boundary=frame'
+    # )
 
     # using Facenet and SVM to predict face in each frame through video stream
-    sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected = face_recog.Face_Rec().main()
+    global sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected
     return Response(
         videoStream(sess, MINSIZE, IMAGE_SIZE, INPUT_IMAGE_SIZE, pnet, rnet, onet, THRESHOLD, FACTOR, model, class_names, images_placeholder, phase_train_placeholder, embeddings, embedding_size, people_detected, person_detected),
         mimetype='multipart/x-mixed-replace; boundary=frame'

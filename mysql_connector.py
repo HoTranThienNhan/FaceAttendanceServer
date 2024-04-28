@@ -357,7 +357,7 @@ def add_new_teacher(connection, request_data):
             query = ("insert into users (id, username, password, fullname, phone, address, email, gender) values (%s, %s, %s, %s, %s, %s, %s, %s)")
             cursor.execute(query, (id, username, password, fullname, phone, address, email, gender))
             query_user_role = ("insert into userrole (userid, roleid) values (%s, 'TC')")
-            cursor.execute(query_user_role, (id))
+            cursor.execute(query_user_role, (id,))
             message = "Add new teacher successfully"
             print("Add new teacher successfully")
             connection.commit()
@@ -651,8 +651,19 @@ def fetch_full_attendance(connection, class_id, date):
         cursor.close()
     return cursor.fetchall()
 
+def fetch_timesheet_by_class_id(connection, class_id):
+    cursor = connection.cursor(dictionary=True, buffered=True)
+    try:
+        query = ("""select * from timesheet where classid = %s""")
+        cursor.execute(query, (class_id,))
+        print("Get timesheet by class id successfully")
+    except:
+        print("Cannot get timesheet by class id")
+    finally:
+        cursor.close()
+    return cursor.fetchall()
+
 def fetch_full_attendance_by_student_id(connection, class_id, student_id):
-    
     cursor = connection.cursor(dictionary=True, buffered=True)
     try:
         query = ("""select t.classid, studentid, t.day, t.date, t.timein, t.timeout, late, soon, 
@@ -664,6 +675,23 @@ def fetch_full_attendance_by_student_id(connection, class_id, student_id):
         print("Get full attendance by student id successfully")
     except:
         print("Cannot get full attendance by student id")
+    finally:
+        cursor.close()
+    return cursor.fetchall()
+
+def fetch_full_attendance_by_class_id(connection, class_id):
+    
+    cursor = connection.cursor(dictionary=True, buffered=True)
+    try:
+        query = ("""select t.classid, studentid, t.day, t.date, t.timein, t.timeout, late, soon, 
+                 fullname, c.timein as stdtimein, c.timeout as stdtimeout from timesheet t
+                 left join students s on t.studentid = s.id 
+                 left join classtime c on t.classid = c.classid and t.day = c.day 
+                 where t.classid = %s""")
+        cursor.execute(query, (class_id,))
+        print("Get full attendance by class id successfully")
+    except:
+        print("Cannot get full attendance by class id")
     finally:
         cursor.close()
     return cursor.fetchall()
@@ -722,6 +750,21 @@ def fetch_standard_in_out_attendance(connection, class_id, day):
         print("Get standard time in/out successfully")
     except:
         print("Cannot get standard time in/out")
+    finally:
+        cursor.close()
+    return cursor.fetchone()
+
+
+# <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< STATS >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>   
+def fetch_total_number_late_soon_stats(connection, class_id):
+    
+    cursor = connection.cursor(dictionary=True, buffered=True)
+    try:
+        query = ("select classid, sum(late > 0) as latecount, sum(soon > 0) as sooncount from timesheet where classid = %s group by classid")
+        cursor.execute(query, (class_id,))
+        print("Get total number late soon stats successfully")
+    except:
+        print("Cannot get total number late soon stats")
     finally:
         cursor.close()
     return cursor.fetchone()
